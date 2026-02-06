@@ -18,7 +18,7 @@ COVERED_STATUSES = {"KILLED", "SURVIVED", "TIMED_OUT"}          # mutants execut
 TOTAL = COVERED_STATUSES.union({"NO_COVERAGE"})                 # all mutants that were generated
 ERROR_STATUSES = {"NON_VIABLE", "MEMORY_ERROR", "RUN_ERROR"}
 
-def pit_classes_from_xml(xml_path: Path):
+def pit_classes_from_xml(xml_path: Path, include_details: bool = True):
     if not xml_path.exists():
         raise FileNotFoundError(f"PIT report not found: {xml_path}")
 
@@ -68,6 +68,7 @@ def pit_classes_from_xml(xml_path: Path):
         total = data["total"]
         covered = data["covered"]
         detected = data["detected"]
+        no_coverage = data["byStatus"].get("NO_COVERAGE", 0)
 
         # When tests reach code, how often do they detect faults?
         test_strength = detected / covered if covered > 0 else None
@@ -77,10 +78,27 @@ def pit_classes_from_xml(xml_path: Path):
 
         score = round(test_strength, 3) if test_strength is not None else None
 
-        result.append({
-            "class": cls,
-            "mutationScore": score
-        })
+        row = {"class": cls, "mutationScore": score}
+
+        if include_details:
+            # add extra context only when you want it
+            row.update({
+                "survived": covered-detected,
+                "killed": detected,
+                "noCoverage": no_coverage,
+            })
+
+            # add extra context only when you want it
+            # row.update({
+            #     "covered": covered,
+            #     "detected": detected,
+            #     "total": total,
+            #     "errors": data["errors"],
+            #     "noCoverage": no_coverage,
+            #     "byStatus": dict(data["byStatus"]),
+            # })
+
+        result.append(row)
 
     # Sort: lowest mutation score first (hotspots)
     result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
@@ -119,4 +137,6 @@ if __name__ == "__main__":
     xml_path = Path(sys.argv[1])
     # result = find_latest_pit_xml(xml_path)
     result = pit_classes_from_xml(xml_path)
-    print(result)
+    # print(result)
+    import json
+    print(json.dumps(result, indent=2, sort_keys=False))
