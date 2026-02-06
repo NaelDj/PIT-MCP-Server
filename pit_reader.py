@@ -1,0 +1,122 @@
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+
+VALID_STATUSES = {
+    "KILLED",
+    "SURVIVED",
+    "NO_COVERAGE",
+    "TIMED_OUT",
+    "NON_VIABLE",
+    "MEMORY_ERROR",
+    "RUN_ERROR",
+}
+
+DETECTED_STATUSES = {"KILLED", "TIMED_OUT"}                     # mutants whose effects were observed (killed, timed out)
+COVERED_STATUSES = {"KILLED", "SURVIVED", "TIMED_OUT"}          # mutants executed by the tests
+TOTAL = COVERED_STATUSES.union({"NO_COVERAGE"})                 # all mutants that were generated
+ERROR_STATUSES = {"NON_VIABLE", "MEMORY_ERROR", "RUN_ERROR"}
+
+def pit_classes_from_xml(xml_path: Path):
+    if not xml_path.exists():
+        raise FileNotFoundError(f"PIT report not found: {xml_path}")
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # class -> counters
+    stats = defaultdict(
+        lambda: {
+            "byStatus": defaultdict(int),
+            "total": 0,
+            "covered": 0, # killed + survived + timeouts
+            "detected": 0, # killed + timeouts
+            "errors": 0,
+        }
+    )
+
+    for mutation in root.findall("mutation"):
+        status = mutation.get("status")
+        mutated_class = mutation.findtext("mutatedClass")
+        if not mutated_class or not status:
+            continue
+
+        # Track status counts (helps debugging / later metrics)
+        stats[mutated_class]["byStatus"][status] += 1
+
+        # For "test strength"/covered-based scores:
+        if status in COVERED_STATUSES:
+            stats[mutated_class]["covered"] += 1
+
+        if status in DETECTED_STATUSES:
+            stats[mutated_class]["detected"] += 1
+
+        # For "mutation coverage" total denominator:
+        # Count NO_COVERAGE too, but exclude error statuses by default
+        if status in TOTAL:
+            stats[mutated_class]["total"] += 1
+
+        # Count errors separately (optional)
+        if status in ERROR_STATUSES:
+            stats[mutated_class]["errors"] += 1
+
+
+    # Build final result
+    result = []
+    for cls, data in stats.items():
+        total = data["total"]
+        covered = data["covered"]
+        detected = data["detected"]
+
+        # When tests reach code, how often do they detect faults?
+        test_strength = detected / covered if covered > 0 else None
+        # Out of all mutants in the code, how often are faults detected?
+        # A mutant that is never executed is still a missed detection
+        mutation_coverage = detected / total if total > 0 else None
+
+        score = round(test_strength, 3) if test_strength is not None else None
+
+        result.append({
+            "class": cls,
+            "mutationScore": score
+        })
+
+    # Sort: lowest mutation score first (hotspots)
+    result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
+
+
+    return result
+
+def find_latest_pit_xml(workspace: Path) -> Path:
+    pit_root = workspace / "target" / "pit-reports"
+    if not pit_root.exists():
+        raise FileNotFoundError(f"No {pit_root} directory found")
+
+    # Case 1: non-timestamped layout (direct file)
+    direct = pit_root / "mutations.xml"
+    if direct.exists():
+        return direct
+
+    # Case 2: timestamped subfolders
+    candidates = []
+    for p in pit_root.iterdir():
+        if p.is_dir():
+            m = p / "mutations.xml"
+            if m.exists():
+                candidates.append(m)
+
+    if not candidates:
+        raise FileNotFoundError(f"No mutations.xml found in {pit_root} (directly or in subfolders)")
+
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+def pit_classes(workspace: Path):
+    xml_path = find_latest_pit_xml(workspace)
+    return pit_classes_from_xml(xml_path)
+
+if __name__ == "__main__":
+    xml_path = Path(sys.argv[1])
+    # result = find_latest_pit_xml(xml_path)
+    result = pit_classes_from_xml(xml_path)
+    print(result)
