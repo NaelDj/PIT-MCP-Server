@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import json
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -88,21 +89,10 @@ def pit_classes_from_xml(xml_path: Path, include_details: bool = True):
                 "noCoverage": no_coverage,
             })
 
-            # add extra context only when you want it
-            # row.update({
-            #     "covered": covered,
-            #     "detected": detected,
-            #     "total": total,
-            #     "errors": data["errors"],
-            #     "noCoverage": no_coverage,
-            #     "byStatus": dict(data["byStatus"]),
-            # })
-
         result.append(row)
 
     # Sort: lowest mutation score first (hotspots)
     result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
-
 
     return result
 
@@ -133,10 +123,103 @@ def pit_classes(workspace: Path):
     xml_path = find_latest_pit_xml(workspace)
     return pit_classes_from_xml(xml_path)
 
+def pit_methods_from_xml(xml_path: Path, class_name: str, include_details: bool = True):
+    if not xml_path.exists():
+        raise FileNotFoundError(f"PIT report not found: {xml_path}")
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # (mutatedMethod, methodDescription) -> counters
+    stats = defaultdict(
+        lambda: {
+            "byStatus": defaultdict(int),
+            "total": 0,
+            "covered": 0,
+            "detected": 0,
+            "errors": 0,
+        }
+    )
+
+    for mutation in root.findall("mutation"):
+        status = mutation.get("status")
+        mutated_class = mutation.findtext("mutatedClass")
+        if not mutated_class or not status:
+            continue
+
+        if mutated_class != class_name:
+            continue
+
+        mutated_method = mutation.findtext("mutatedMethod") or "<unknownMethod>"
+        method_desc = mutation.findtext("methodDescription") or ""
+
+        key = (mutated_method, method_desc)
+
+        # Track status counts
+        stats[key]["byStatus"][status] += 1
+
+        # Covered / detected
+        if status in COVERED_STATUSES:
+            stats[key]["covered"] += 1
+        if status in DETECTED_STATUSES:
+            stats[key]["detected"] += 1
+
+        # Total denominator (covered + no_coverage)
+        if status in TOTAL:
+            stats[key]["total"] += 1
+
+        # Errors separately
+        if status in ERROR_STATUSES:
+            stats[key]["errors"] += 1
+
+    # Build final result
+    result = []
+    for (method, desc), data in stats.items():
+        total = data["total"]
+        covered = data["covered"]
+        detected = data["detected"]
+        no_coverage = data["byStatus"].get("NO_COVERAGE", 0)
+
+        # Test strength: detected / covered, undefined when covered==0
+        test_strength = detected / covered if covered > 0 else None
+        score = round(test_strength, 3) if test_strength is not None else None
+
+        row = {
+            # "class": class_name,
+            "method": method,
+            "methodDesc": desc,
+            "mutationScore": score,
+        }
+
+        if include_details:
+            row.update({
+                "survived": covered - detected,
+                "killed": detected,
+                "noCoverage": no_coverage,
+            })
+
+        result.append(row)
+
+    # Sort: lowest score first; null last
+    result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
+
+    return result
+
+def pit_methods(workspace: Path, class_name: str, include_details: bool = True):
+    xml_path = find_latest_pit_xml(workspace)
+    return pit_methods_from_xml(xml_path, class_name=class_name, include_details=include_details)
+
 if __name__ == "__main__":
-    xml_path = Path(sys.argv[1])
+
+    # Testing classes
+    # xml_path = Path(sys.argv[1])
     # result = find_latest_pit_xml(xml_path)
-    result = pit_classes_from_xml(xml_path)
     # print(result)
-    import json
+    # result = pit_classes_from_xml(xml_path)
+    # print(json.dumps(result, indent=2, sort_keys=False))
+
+    # Testing methods
+    xml_path = Path(sys.argv[1])
+    class_name = sys.argv[2]
+    result = pit_methods_from_xml(xml_path, class_name=class_name)
     print(json.dumps(result, indent=2, sort_keys=False))

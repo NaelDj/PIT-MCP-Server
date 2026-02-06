@@ -5,7 +5,7 @@ from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from typing import List  # Import List for type hinting
 from pathlib import Path
-from pit_reader import find_latest_pit_xml, pit_classes
+from pit_reader import find_latest_pit_xml, pit_classes, pit_methods
 
 app = Server("mcp-ping-server")
 
@@ -57,6 +57,29 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["workspace"],
             },
         ),
+        types.Tool(
+            name="pit_methods",
+            description=(
+                "Return per-method mutation scores (test strength) for a given class, using the latest PIT mutations.xml "
+                "under <workspace>/target/pit-reports. "
+                "A null mutationScore means that method had no mutants executed by tests (covered=0; only NO_COVERAGE)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Absolute path to the project workspace root.",
+                    },
+                    "className": {
+                        "type": "string",
+                        "description": "Fully qualified class name, e.g., org.example.Calculator",
+                    },
+                },
+                "required": ["workspace", "className"],
+            },
+        ),
+
 
     ]
 
@@ -99,6 +122,29 @@ async def call_tool(name: str, arguments: dict | None = None):
                 text=json.dumps(rows, indent=2),
             )
         ]
+    
+    if name == "pit_methods":
+        workspace_str = arguments.get("workspace")
+        class_name = arguments.get("className")
+        include_details = arguments.get("includeDetails", True)
+
+        if not workspace_str or not isinstance(workspace_str, str):
+            raise ValueError("pit_methods requires a string 'workspace' argument")
+        if not class_name or not isinstance(class_name, str):
+            raise ValueError("pit_methods requires a string 'className' argument")
+        if not isinstance(include_details, bool):
+            raise ValueError("pit_methods 'includeDetails' must be a boolean")
+
+        workspace = Path(workspace_str)
+        rows = pit_methods(workspace, class_name=class_name, include_details=include_details)
+
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(rows, indent=2),
+            )
+        ]
+
 
     raise ValueError(f"Unknown tool: {name}")
 
