@@ -5,7 +5,7 @@ from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 from typing import List  # Import List for type hinting
 from pathlib import Path
-from pit_reader import find_latest_pit_xml, pit_classes, pit_methods
+from pit_reader import find_latest_pit_xml, pit_classes, pit_methods, pit_survivors_for_method
 
 app = Server("mcp-ping-server")
 
@@ -79,8 +79,41 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["workspace", "className"],
             },
         ),
-
-
+        types.Tool(
+            name="pit_survivors_for_method",
+            description=(
+                "Return surviving PIT mutants (status=SURVIVED) for a specific method in a class, "
+                "using the latest mutations.xml under <workspace>/target/pit-reports. "
+                "Pass methodDesc (JVM descriptor) for exact overload matching; if null, results are grouped by signature. "
+                "In the response, requestedMethodDesc=null means no overload was specified, "
+                "and sourceFile is provided only when all survivors map to the same file."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Absolute path to the project workspace root.",
+                    },
+                    "className": {
+                        "type": "string",
+                        "description": "Fully qualified class name, e.g., org.example.Calculator",
+                    },
+                    "method": {
+                        "type": "string",
+                        "description": "Method name, e.g., toString",
+                    },
+                    "methodDesc": {
+                        "type": "string",
+                        "description": (
+                            "JVM method descriptor, e.g., ()Ljava/lang/String;. "
+                            "Recommended: forward this from pit_methods for exact overload matching."
+                        ),
+                    },
+                },
+                "required": ["workspace", "className", "method"],
+            },
+        ),
     ]
 
 
@@ -137,6 +170,36 @@ async def call_tool(name: str, arguments: dict | None = None):
 
         workspace = Path(workspace_str)
         rows = pit_methods(workspace, class_name=class_name, include_details=include_details)
+
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(rows, indent=2),
+            )
+        ]
+    
+    if name == "pit_survivors_for_method":
+        workspace_str = arguments.get("workspace")
+        class_name = arguments.get("className")
+        method = arguments.get("method")
+        method_desc = arguments.get("methodDesc", None)
+
+        if not workspace_str or not isinstance(workspace_str, str):
+            raise ValueError("pit_survivors_for_method requires a string 'workspace' argument")
+        if not class_name or not isinstance(class_name, str):
+            raise ValueError("pit_survivors_for_method requires a string 'className' argument")
+        if not method or not isinstance(method, str):
+            raise ValueError("pit_survivors_for_method requires a string 'method' argument")
+        if method_desc is not None and not isinstance(method_desc, str):
+            raise ValueError("pit_survivors_for_method 'methodDesc' must be a string if provided")
+
+        workspace = Path(workspace_str)
+        rows = pit_survivors_for_method(
+            workspace,
+            class_name=class_name,
+            method=method,
+            method_desc=method_desc,
+        )
 
         return [
             types.TextContent(

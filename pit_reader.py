@@ -203,11 +203,97 @@ def pit_methods_from_xml(xml_path: Path, class_name: str, include_details: bool 
     # Sort: lowest score first; null last
     result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
 
-    return result
+    return {
+        "class": class_name,
+        "methods": result,
+    }
+
 
 def pit_methods(workspace: Path, class_name: str, include_details: bool = True):
     xml_path = find_latest_pit_xml(workspace)
     return pit_methods_from_xml(xml_path, class_name=class_name, include_details=include_details)
+
+def pit_survivors_for_method_from_xml(
+    xml_path: Path,
+    class_name: str,
+    method: str,
+    method_desc: str | None = None,
+):
+    if not xml_path.exists():
+        raise FileNotFoundError(f"PIT report not found: {xml_path}")
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # desc -> list of survivor dicts
+    grouped = defaultdict(list)
+    source_files_seen = set()
+
+    for mutation in root.findall("mutation"):
+        status = mutation.get("status")
+        mutated_class = mutation.findtext("mutatedClass")
+        if not status or not mutated_class:
+            continue
+        if mutated_class != class_name:
+            continue
+        if status != "SURVIVED":
+            continue
+
+        mutated_method = mutation.findtext("mutatedMethod") or ""
+        desc = mutation.findtext("methodDescription") or ""
+
+        if mutated_method != method:
+            continue
+        if method_desc is not None and desc != method_desc:
+            continue
+
+        source_file = mutation.findtext("sourceFile") or None
+        if source_file is not None:
+            source_files_seen.add(source_file)
+
+        grouped[desc].append({
+            "sourceFile": source_file,  # keep for now; maybe dedupe later
+            "lineNumber": int(mutation.findtext("lineNumber") or 0) or None,
+            "mutator": mutation.findtext("mutator") or None,
+            "description": mutation.findtext("description") or None,
+        })
+
+    signatures = []
+    for desc, survivors in grouped.items():
+        survivors.sort(key=lambda x: (x["lineNumber"] is None, x["lineNumber"] or 0))
+        signatures.append({
+            "methodDesc": desc or None,
+            "survivors": survivors,
+        })
+
+    signatures.sort(key=lambda s: (s["methodDesc"] is None, s["methodDesc"] or ""))
+
+    # Deduplicate sourceFile if it's unique
+    top_source_file = None
+    if len(source_files_seen) == 1:
+        top_source_file = next(iter(source_files_seen))
+        for sig in signatures:
+            for s in sig["survivors"]:
+                s.pop("sourceFile", None)  # remove per-row sourceFile
+
+    return {
+        "class": class_name,
+        "method": method,
+        "requestedMethodDesc": method_desc,   # None if name-only
+        "sourceFile": top_source_file,        # None if unknown or multiple
+        "signatures": signatures,
+    }
+
+def pit_survivors_for_method(
+    workspace: Path,
+    class_name: str,
+    method: str,
+    method_desc: str | None = None,
+):
+    xml_path = find_latest_pit_xml(workspace)
+    return pit_survivors_for_method_from_xml(
+        xml_path, class_name=class_name, method=method, method_desc=method_desc
+    )
 
 if __name__ == "__main__":
 
@@ -219,7 +305,17 @@ if __name__ == "__main__":
     # print(json.dumps(result, indent=2, sort_keys=False))
 
     # Testing methods
+    # xml_path = Path(sys.argv[1])
+    # class_name = sys.argv[2]
+    # result = pit_methods_from_xml(xml_path, class_name=class_name)
+    # print(json.dumps(result, indent=2, sort_keys=False))
+
+    # Testing survivors for a method
     xml_path = Path(sys.argv[1])
     class_name = sys.argv[2]
-    result = pit_methods_from_xml(xml_path, class_name=class_name)
+    method = sys.argv[3]
+    method_desc = sys.argv[4] if len(sys.argv) > 4 else None
+    result = pit_survivors_for_method_from_xml(
+        xml_path, class_name=class_name, method=method, method_desc=method_desc
+    )
     print(json.dumps(result, indent=2, sort_keys=False))
