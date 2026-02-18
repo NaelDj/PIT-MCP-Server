@@ -298,11 +298,11 @@ def pit_survivors_for_method(
 if __name__ == "__main__":
 
     # Testing classes
-    # xml_path = Path(sys.argv[1])
+    xml_path = Path(sys.argv[1])
     # result = find_latest_pit_xml(xml_path)
     # print(result)
-    # result = pit_classes_from_xml(xml_path)
-    # print(json.dumps(result, indent=2, sort_keys=False))
+    result = pit_classes_from_xml(xml_path)
+    print(json.dumps(result, indent=2, sort_keys=False))
 
     # Testing methods
     # xml_path = Path(sys.argv[1])
@@ -311,11 +311,11 @@ if __name__ == "__main__":
     # print(json.dumps(result, indent=2, sort_keys=False))
 
     # Testing survivors for a method
-    xml_path = Path(sys.argv[1])
-    class_name = sys.argv[2]
-    method = sys.argv[3]
-    method_desc = sys.argv[4] if len(sys.argv) > 4 else None
-    result = pit_survivors_for_method_from_xml(
-        xml_path, class_name=class_name, method=method, method_desc=method_desc
-    )
-    print(json.dumps(result, indent=2, sort_keys=False))
+    # xml_path = Path(sys.argv[1])
+    # class_name = sys.argv[2]
+    # method = sys.argv[3]
+    # method_desc = sys.argv[4] if len(sys.argv) > 4 else None
+    # result = pit_survivors_for_method_from_xml(
+    #     xml_path, class_name=class_name, method=method, method_desc=method_desc
+    # )
+    # print(json.dumps(result, indent=2, sort_keys=False))

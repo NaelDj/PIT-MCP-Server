@@ -159,17 +159,18 @@ async def call_tool(name: str, arguments: dict | None = None):
     if name == "pit_methods":
         workspace_str = arguments.get("workspace")
         class_name = arguments.get("className")
-        include_details = arguments.get("includeDetails", True)
+        # include_details = arguments.get("includeDetails", True)
 
         if not workspace_str or not isinstance(workspace_str, str):
             raise ValueError("pit_methods requires a string 'workspace' argument")
         if not class_name or not isinstance(class_name, str):
             raise ValueError("pit_methods requires a string 'className' argument")
-        if not isinstance(include_details, bool):
-            raise ValueError("pit_methods 'includeDetails' must be a boolean")
+        # if not isinstance(include_details, bool):
+        #     raise ValueError("pit_methods 'includeDetails' must be a boolean")
 
         workspace = Path(workspace_str)
-        rows = pit_methods(workspace, class_name=class_name, include_details=include_details)
+        rows = pit_methods(workspace, class_name=class_name)
+        # rows = pit_methods(workspace, class_name=class_name, include_details=include_details)
 
         return [
             types.TextContent(
