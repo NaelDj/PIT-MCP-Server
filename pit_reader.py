@@ -92,7 +92,12 @@ def pit_classes_from_xml(xml_path: Path, include_details: bool = True):
         result.append(row)
 
     # Sort: lowest mutation score first (hotspots)
-    result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
+    # result.sort(key=lambda x: (x["mutationScore"] is None, x["mutationScore"]))
+
+    result.sort(
+        key=lambda x: (x["survived"], x["killed"] + x["survived"] + x["noCoverage"]),
+        reverse=True
+    )
 
     return result
 
@@ -301,14 +306,15 @@ if __name__ == "__main__":
     xml_path = Path(sys.argv[1])
     # result = find_latest_pit_xml(xml_path)
     # print(result)
-    result = pit_classes_from_xml(xml_path)
-    print(json.dumps(result, indent=2, sort_keys=False))
+    # result = pit_classes_from_xml(xml_path)
+    # result = sorted(result, key=lambda x: x["survived"], reverse=True)[:10]
+    # print(json.dumps(result, indent=2, sort_keys=False))
 
     # Testing methods
-    # xml_path = Path(sys.argv[1])
-    # class_name = sys.argv[2]
-    # result = pit_methods_from_xml(xml_path, class_name=class_name)
-    # print(json.dumps(result, indent=2, sort_keys=False))
+    xml_path = Path(sys.argv[1])
+    class_name = sys.argv[2]
+    result = pit_methods_from_xml(xml_path, class_name=class_name)
+    print(json.dumps(result, indent=2, sort_keys=False))
 
     # Testing survivors for a method
     # xml_path = Path(sys.argv[1])
