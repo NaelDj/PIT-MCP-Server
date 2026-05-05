@@ -2,9 +2,18 @@
 
 Minimal MCP server for exposing PIT mutation testing results to LLM agents (e.g. Cline).
 
-Currently includes:
-- ping tool for connectivity testing
+In Cline, add the following under MCP Servers > Configure > Configure MCP Servers
 
-Planned:
-- PIT XML parsing
-- mutation score and survivor queries
+```
+{
+  "mcpServers": {
+    "PIT-MCPServer": {
+      "command": "C:/Users/[directory]/PIT-MCPServer/.venv/Scripts/python.exe",
+      "args": ["C:/Users/[directory]/PIT-MCPServer/server.py"]
+    }
+  }
+}
+
+```
+
+and turn on the server in Cline.
