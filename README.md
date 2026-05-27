@@ -4,6 +4,8 @@ Minimal MCP server for exposing PIT mutation testing results to LLM agents, such
 
 This server was used in the thesis to let an LLM agent query PIT mutation testing results without pasting the full PIT report into the prompt. Instead, the agent can ask for scoped information, such as the latest PIT report, mutation results per class, mutation results per method, and surviving mutants for a specific method.
 
+The full replication package is available here: https://github.com/NaelDj/Mutation-LLM-Refactoring
+
 ## Purpose
 
 PIT reports can be large, especially for projects with many classes and mutants. This MCP server provides a small interface around PIT's `mutations.xml` file so that an LLM agent can inspect mutation testing results on demand.
