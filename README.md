@@ -105,7 +105,7 @@ The `methodDesc` field is optional, but recommended when a method is overloaded.
 
 ```bash
 git clone https://github.com/NaelDj/PIT-MCP-Server.git
-cd PIT-MCPServer
+cd PIT-MCP-Server
 ```
 
 2. Create and activate a Python virtual environment.
@@ -143,9 +143,9 @@ Example configuration for Windows:
 ```json
 {
   "mcpServers": {
-    "PIT-MCPServer": {
-      "command": "C:/Users/[directory]/PIT-MCPServer/.venv/Scripts/python.exe",
-      "args": ["C:/Users/[directory]/PIT-MCPServer/server.py"]
+    "PIT-MCP-Server": {
+      "command": "C:/Users/[directory]/PIT-MCP-Server/.venv/Scripts/python.exe",
+      "args": ["C:/Users/[directory]/PIT-MCP-Server/server.py"]
     }
   }
 }
@@ -156,9 +156,9 @@ Example configuration for Linux/macOS:
 ```json
 {
   "mcpServers": {
-    "PIT-MCPServer": {
-      "command": "/home/[user]/PIT-MCPServer/.venv/bin/python",
-      "args": ["/home/[user]/PIT-MCPServer/server.py"]
+    "PIT-MCP-Server": {
+      "command": "/home/[user]/PIT-MCP-Server/.venv/bin/python",
+      "args": ["/home/[user]/PIT-MCP-Server/server.py"]
     }
   }
 }
@@ -180,7 +180,7 @@ For example:
 
 ```json
 {
-  "workspace": "C:/Users/[user]/mlr-jfreechart"
+  "workspace": "C:/Users/[user]/JFreeChart-LLM-Refactoring"
 }
 ```
 
