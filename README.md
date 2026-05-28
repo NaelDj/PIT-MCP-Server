@@ -104,7 +104,7 @@ The `methodDesc` field is optional, but recommended when a method is overloaded.
 1. Clone this repository:
 
 ```bash
-git clone https://github.com/NaelDj/PIT-MCPServer.git
+git clone https://github.com/NaelDj/PIT-MCP-Server.git
 cd PIT-MCPServer
 ```
 
